@@ -12,6 +12,7 @@
 
 #if defined(_WIN32 ) || defined(_WIN64)
     #include <windows.h>
+    #include <shlwapi.h> 
 #endif
 
 
@@ -22,8 +23,12 @@ char* normalize_extension(const char* extension);
 const char* get_extension(const char* file);
 
 // Function: Create folder (Windows/Linux)
+void create_folder_linux( const char* base_path, const char* folder_name);
+void create_folder_windows(const char* base_path, const char* folder_name);
+
 // Function: Move file (Windows/Linux)
-// Function: Sort files in directory (uses above)
+void move_file_linux(const char* src_path, const char* dst_path);
+void move_file_windows(const char* src_path, const char* dst_path);
 
 
 // Check OS
@@ -39,9 +44,12 @@ bool is_directory_linux(const char *path);
     bool is_directory_windows(WIN32_FIND_DATA f);
 #endif
 
+void move_files(const char* src_path, const char* dst_path);
 
 // Function: Sorter for Windows
+void move_file_windows(const char* src_path, const char* dst_path);
 // Function: Sorter for Linux
+void move_file_linux(const char* src_path, const char* dst_path);
 
 // Main function
 int main(void) {
@@ -100,7 +108,7 @@ void read_folder(string path) {
     else if (strcmp(os, "windows") == 0) {
         #if defined(_WIN32 ) || defined(_WIN64)
             printf("WIndows mode\n");
-            char pattern[MAX_PATH];
+            char pattern[512];
             snprintf(pattern, sizeof(pattern), "%s\\*", path);
             WIN32_FIND_DATA findData;
             HANDLE hFind = FindFirstFile(pattern, &findData);
@@ -169,3 +177,158 @@ char* normalize_extension(const char* extension) {
     return lower_extension;
     
 }
+
+
+void create_folder_linux( const char* base_path, const char* folder_name) {
+    char full_path[512];
+    snprintf(full_path, sizeof(full_path), "%s/%s", base_path, folder_name);
+
+    struct stat st;
+    
+    if (stat(full_path, &st) == 0 && S_ISDIR(st.st_mode)) {
+        printf("Folder exists\n");
+    }
+
+    else {
+        if (mkdir(full_path, 0755) == 0) {
+            printf("Directory created\n");
+        }
+        
+        else {
+            perror("Error Creating Directory");
+        }
+        
+    }
+    
+}
+
+void create_folder_windows(const char* base_path, const char* folder_name) {
+    #if defined(_WIN32) || defined(_WIN64)
+        char full_path[512];
+        snprintf(full_path, sizeof(full_path), "%s\\%s", base_path, folder_name);
+        
+        DWORD attrs = GetFileAttributes(full_path);
+        if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+            printf("Folder Exists\n");
+        } else {
+            if (CreateDirectory(full_path, NULL)) {
+                printf("Directory Created\n");
+            } else {
+                printf("Error Creating Directory. Code: %lu\n", GetLastError());
+            }
+        }
+    #endif
+}
+
+
+void move_file_linux(const char* src_path, const char* dst_path) {
+    struct dirent *items;
+    DIR* dir = opendir(src_path);
+    if (!dir) {
+        perror("Couldn't open directory");
+        return;
+    }
+
+    while ((items = readdir(dir)) != NULL) {
+        if (strcmp(items->d_name, ".") == 0 || strcmp(items->d_name, "..") == 0)
+            continue;
+
+        const char* filename = items->d_name;
+        const char* extensions = get_extension(filename);
+        char* lower_extension;
+
+        if (!extensions) {
+            lower_extension = strdup("Others");
+        } else {
+            lower_extension = normalize_extension(extensions);
+            if (!lower_extension) {
+                perror("Memory allocation failed");
+                continue;
+            }
+        }
+
+        char src_full[512], dst_full[512];
+        snprintf(src_full, sizeof(src_full), "%s/%s", src_path, filename);
+
+        if (is_directory_linux(src_full)) {
+            free(lower_extension);
+            continue;
+        }
+
+        create_folder_linux(dst_path, lower_extension);
+        snprintf(dst_full, sizeof(dst_full), "%s/%s/%s", dst_path, lower_extension, filename);
+
+        if (rename(src_full, dst_full) != 0) {
+            perror("Failed to move file");
+        }
+
+        free(lower_extension);
+    }
+
+    closedir(dir);  
+}
+
+
+
+void move_file_windows(const char* src_path, const char* dst_path) {
+    #if defined(_WIN32) || defined(_WIN64)
+        char pattern[512];
+        snprintf(pattern, sizeof(pattern), "%s\\*", src_path);
+        WIN32_FIND_DATA findData;
+
+        HANDLE hFind = FindFirstFile(pattern, &findData);
+        if (hFind == INVALID_HANDLE_VALUE) {
+            printf("Error opening directory.\n");
+            return;
+        }
+
+        do {
+            if (strcmp(findData.cFileName, ".") == 0 || strcmp(findData.cFileName, "..") == 0)
+                continue;
+
+            const char* filename = findData.cFileName;
+            const char* extension = get_extension(filename);
+            char* lower_extension;
+
+            if (!extension) {
+                lower_extension = strdup("Others");
+            } else {
+                lower_extension = normalize_extension(extension);
+                if (!lower_extension) {
+                    printf("Memory allocation failed\n");
+                    continue;
+                }
+            }
+
+            char src_full[512], dst_full[512];
+            snprintf(src_full, sizeof(src_full), "%s\\%s", src_path, filename);
+
+            if (is_directory_windows(src_full)) {
+                free(lower_extension);
+                continue;
+            }
+
+            create_folder_windows(dst_path, lower_extension);
+            snprintf(dst_full, sizeof(dst_full), "%s\\%s\\%s", dst_path, lower_extension, filename);
+
+            if (!MoveFile(src_full, dst_full)) {
+                printf("Error moving file: %lu\n", GetLastError());
+            }
+
+            free(lower_extension);
+        } while (FindNextFile(hFind, &findData) != 0);
+
+        FindClose(hFind);
+    #endif
+}
+
+
+void move_files(const char* src_path, const char* dst_path) {
+    #if defined(_WIN32) || defined(_WIN64)
+        move_file_windows(src_path, dst_path);
+    #else
+        move_file_linux(src_path, dst_path);
+    #endif
+}
+
+    

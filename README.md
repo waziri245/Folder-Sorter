@@ -80,8 +80,8 @@ python3 folder_sorter_gui.py
 
 ### 🌐 Step-by-step (Windows):
 
-```bat
-git clone https://github.com/yourusername/Folder-Sorter.git
+```bash
+git clone https://github.com/waziri245/Folder-Sorter.git
 cd Folder-Sorter\backend
 build.bat                  # Builds folder_sorter.dll into ..\shared\
 cd ..\frontend

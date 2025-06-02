@@ -22,6 +22,10 @@ jobs:
       with:
         python-version: '3.x'
 
+    - name: Install Pytest
+      run: |
+        pip install pytest
+
     - name: Build backend (Linux)
       if: runner.os == 'Linux'
       run: |

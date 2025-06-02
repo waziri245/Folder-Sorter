@@ -25,11 +25,14 @@ jobs:
     - name: Build backend (Linux)
       if: runner.os == 'Linux'
       run: |
+        sudo apt update
+        sudo apt install -y build-essential
         cd backend
         make
 
     - name: Build backend (Windows)
       if: runner.os == 'Windows'
+      shell: cmd
       run: |
         cd backend
         build.bat

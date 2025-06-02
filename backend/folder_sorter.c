@@ -1,5 +1,5 @@
 // -------------------- Header Files --------------------
-#include <cs50.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
@@ -12,6 +12,7 @@
     #include <windows.h>
 #endif
 
+typedef char* string;
 // -------------------- Utility Functions (OS-Agnostic) --------------------
 
 // Get the current OS as a string

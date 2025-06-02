@@ -65,10 +65,15 @@ void create_folder_linux(const char* base_path, const char* folder_name) {
     if (stat(full_path, &st) == 0 && S_ISDIR(st.st_mode)) {
         printf("Folder exists\n");
     } else {
-        mkdir(full_path, 0755);
+    #ifdef _WIN32
+        mkdir(full_path);  // Windows needs only one argument
+    #else
+        mkdir(full_path, 0755);  // Linux/macOS needs mode
+    #endif
         printf("Directory created\n");
     }
 }
+
 
 // -------------------- Linux File Sorting --------------------
 void move_file_linux(const char* src_path, const char* dst_path) {
